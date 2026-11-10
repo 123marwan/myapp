@@ -1,48 +1,48 @@
 import { useState } from "react";
 import {
-  ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
   Pressable,
   ScrollView,
   StyleSheet,
-  TextInput,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import Text from "../components/AppText";
 import { LinearGradient } from "expo-linear-gradient";
 
-import { api, getErrorMessage } from "../api";
-import { useAuth } from "../AuthContext";
+import Text from "../components/AppText";
+import ErrorBanner from "../components/ui/ErrorBanner";
+import FormTextField from "../components/ui/FormTextField";
+import PrimaryButton from "../components/ui/PrimaryButton";
+import { useAuth } from "../context/AuthContext";
+import { login } from "../services/authService";
+import { getApiErrorMessage } from "../services/apiError";
 import { colors, fonts, gradients, radius, shadow } from "../theme";
 
 export default function LoginScreen({ navigation }) {
   const { signIn } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [focusedField, setFocusedField] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const [showPassword, setShowPassword] = useState(false);
-  const [focused, setFocused] = useState("");
 
   async function handleLogin() {
-    setError("");
+    const trimmedEmail = email.trim();
 
-    if (!email.trim() || !password) {
+    if (!trimmedEmail || !password) {
       setError("من فضلك اكتب الإيميل والباسورد");
       return;
     }
 
+    setError("");
     setLoading(true);
     try {
-      const { data } = await api.post("/login", {
-        email: email.trim(),
-        password,
-      });
-      await signIn(data.token, data.user);
+      const session = await login({ email: trimmedEmail, password });
+      await signIn(session.token, session.user);
     } catch (err) {
-      setError(getErrorMessage(err));
+      setError(getApiErrorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -72,12 +72,7 @@ export default function LoginScreen({ navigation }) {
         >
           <View style={styles.shell}>
             <View style={styles.brandRow}>
-              <LinearGradient
-                colors={gradients.primary}
-                start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 1 }}
-                style={styles.logo}
-              >
+              <LinearGradient colors={gradients.primary} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.logo}>
                 <Text style={styles.logoText}>م</Text>
               </LinearGradient>
               <View>
@@ -87,93 +82,47 @@ export default function LoginScreen({ navigation }) {
             </View>
 
             <Text style={styles.title}>أهلاً بيك 👋</Text>
-            <Text style={styles.subtitle}>
-              سجّل الدخول علشان تكمل من غير ما تفقد بياناتك.
-            </Text>
+            <Text style={styles.subtitle}>سجّل الدخول علشان تكمل من غير ما تفقد بياناتك.</Text>
 
             <View style={styles.card}>
-              <Text style={styles.label}>الإيميل</Text>
-              <View style={styles.inputWrap}>
-                <Text style={styles.inputIcon}>@</Text>
-                <TextInput
-                  style={[styles.input, focused === "email" && styles.inputFocused]}
-                  value={email}
-                  onChangeText={setEmail}
-                  onFocus={() => setFocused("email")}
-                  onBlur={() => setFocused("")}
-                  placeholder="you@example.com"
-                  placeholderTextColor={colors.faint}
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  textContentType="emailAddress"
-                  editable={!loading}
-                />
-              </View>
+              <FormTextField
+                label="الإيميل"
+                icon="@"
+                value={email}
+                onChangeText={setEmail}
+                placeholder="you@example.com"
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoCorrect={false}
+                textContentType="emailAddress"
+                autoComplete="email"
+                editable={!loading}
+                focused={focusedField === "email"}
+                onFocus={() => setFocusedField("email")}
+                onBlur={() => setFocusedField("")}
+              />
 
-              <Text style={styles.label}>الباسورد</Text>
-              <View style={styles.inputWrap}>
-                <Text style={styles.inputIcon}>🔒</Text>
-                <TextInput
-                  style={[
-                    styles.input,
-                    styles.passwordInput,
-                    focused === "password" && styles.inputFocused,
-                  ]}
-                  value={password}
-                  onChangeText={setPassword}
-                  onFocus={() => setFocused("password")}
-                  onBlur={() => setFocused("")}
-                  placeholder="••••••••"
-                  placeholderTextColor={colors.faint}
-                  secureTextEntry={!showPassword}
-                  textContentType="password"
-                  autoComplete="current-password"
-                  editable={!loading}
-                  onSubmitEditing={handleLogin}
-                />
-                <Pressable
-                  onPress={() => setShowPassword((v) => !v)}
-                  hitSlop={8}
-                  style={styles.eyeButton}
-                >
-                  <Text style={styles.eyeText}>
-                    {showPassword ? "إخفاء" : "عرض"}
-                  </Text>
-                </Pressable>
-              </View>
+              <FormTextField
+                label="الباسورد"
+                icon="🔒"
+                value={password}
+                onChangeText={setPassword}
+                placeholder="••••••••"
+                secureTextEntry={!showPassword}
+                textContentType="password"
+                autoComplete="current-password"
+                editable={!loading}
+                onSubmitEditing={handleLogin}
+                focused={focusedField === "password"}
+                onFocus={() => setFocusedField("password")}
+                onBlur={() => setFocusedField("")}
+                rightActionLabel={showPassword ? "إخفاء" : "عرض"}
+                onRightActionPress={() => setShowPassword((value) => !value)}
+              />
 
-              {error ? (
-                <View style={styles.errorBox}>
-                  <Text style={styles.errorIcon}>!</Text>
-                  <Text style={styles.error}>{error}</Text>
-                </View>
-              ) : null}
+              <ErrorBanner message={error} />
 
-              <Pressable
-                onPress={handleLogin}
-                disabled={loading}
-                style={({ pressed }) => [
-                  styles.ctaWrap,
-                  pressed && styles.ctaPressed,
-                ]}
-              >
-                <LinearGradient
-                  colors={gradients.primary}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 0 }}
-                  style={styles.cta}
-                >
-                  {loading ? (
-                    <ActivityIndicator color="#fff" />
-                  ) : (
-                    <>
-                      <Text style={styles.ctaText}>تسجيل الدخول</Text>
-                      <Text style={styles.ctaArrow}>←</Text>
-                    </>
-                  )}
-                </LinearGradient>
-              </Pressable>
+              <PrimaryButton title="تسجيل الدخول" onPress={handleLogin} loading={loading} />
 
               <View style={styles.divider}>
                 <View style={styles.dividerLine} />
@@ -184,10 +133,7 @@ export default function LoginScreen({ navigation }) {
               <Pressable
                 onPress={() => navigation.navigate("Register")}
                 disabled={loading}
-                style={({ pressed }) => [
-                  styles.ghostBtn,
-                  pressed && styles.ghostPressed,
-                ]}
+                style={({ pressed }) => [styles.ghostBtn, pressed && styles.ghostPressed]}
               >
                 <Text style={styles.ghostText}>اعمل حساب جديد</Text>
               </Pressable>
@@ -277,99 +223,6 @@ const styles = StyleSheet.create({
     borderColor: "rgba(232,236,244,0.9)",
     ...shadow.card,
   },
-  label: {
-    fontSize: 13,
-    fontFamily: fonts.bold,
-    color: "#3F4756",
-    marginBottom: 8,
-    marginTop: 12,
-    textAlign: "right",
-  },
-  inputWrap: { position: "relative", justifyContent: "center" },
-  inputIcon: {
-    position: "absolute",
-    right: 14,
-    zIndex: 2,
-    fontSize: 15,
-    color: colors.primary,
-    fontFamily: fonts.extrabold,
-  },
-  input: {
-    backgroundColor: "#F7F9FD",
-    borderWidth: 1.5,
-    borderColor: colors.line,
-    borderRadius: radius.md,
-    paddingRight: 42,
-    paddingLeft: 14,
-    paddingVertical: 14,
-    fontSize: 15,
-    color: colors.text,
-    textAlign: "right",
-    fontFamily: fonts.regular,
-  },
-  inputFocused: {
-    borderColor: colors.primary,
-    backgroundColor: "#FFFFFF",
-    shadowColor: colors.primary,
-    shadowOpacity: 0.12,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 2,
-  },
-  passwordInput: { paddingLeft: 62 },
-  eyeButton: {
-    position: "absolute",
-    left: 6,
-    top: 0,
-    bottom: 0,
-    justifyContent: "center",
-    paddingHorizontal: 10,
-  },
-  eyeText: { color: colors.primary, fontSize: 13, fontFamily: fonts.extrabold },
-  errorBox: {
-    flexDirection: "row-reverse",
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: "#FFF1F2",
-    borderWidth: 1,
-    borderColor: "#FECDD3",
-    borderRadius: radius.sm,
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    marginTop: 16,
-  },
-  errorIcon: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    backgroundColor: colors.danger,
-    color: "#fff",
-    fontSize: 12,
-    fontFamily: fonts.extrabold,
-    textAlign: "center",
-    lineHeight: 18,
-    marginLeft: 8,
-    overflow: "hidden",
-  },
-  error: {
-    color: colors.danger,
-    fontSize: 13,
-    fontFamily: fonts.semibold,
-    flexShrink: 1,
-    textAlign: "right",
-  },
-  ctaWrap: { marginTop: 22, borderRadius: radius.md, ...shadow.glow },
-  ctaPressed: { opacity: 0.88, transform: [{ scale: 0.99 }] },
-  cta: {
-    borderRadius: radius.md,
-    paddingVertical: 16,
-    paddingHorizontal: 20,
-    flexDirection: "row-reverse",
-    alignItems: "center",
-    justifyContent: "space-between",
-  },
-  ctaText: { color: "#fff", fontSize: 16, fontFamily: fonts.extrabold },
-  ctaArrow: { color: "#fff", fontSize: 20, fontFamily: fonts.bold },
   divider: {
     flexDirection: "row",
     alignItems: "center",
@@ -407,10 +260,6 @@ const styles = StyleSheet.create({
   },
   perk: { flex: 1, alignItems: "center", gap: 3 },
   perkIcon: { fontSize: 13 },
-  perkText: {
-    color: colors.muted,
-    fontSize: 10,
-    fontFamily: fonts.semibold,
-  },
+  perkText: { color: colors.muted, fontSize: 10, fontFamily: fonts.semibold },
   perkDivider: { width: 1, height: 22, backgroundColor: colors.line },
 });

@@ -1,4 +1,8 @@
-// نظام التصميم الموحّد للتطبيق
+import { AVATARS } from "./constants/avatars";
+import { formatDate } from "./utils/format";
+import { getAvatarGradient, getInitials } from "./utils/user";
+
+// Design tokens
 export const colors = {
   bg: "#F3F5FB",
   surface: "#FFFFFF",
@@ -49,22 +53,6 @@ export const radius = {
   pill: 999,
 };
 
-// الأفاتارات المتاحة وقت إنشاء الحساب (نفس القائمة في السيرفر)
-export const AVATARS = [
-  "🦊",
-  "🐼",
-  "🐯",
-  "🦁",
-  "🐨",
-  "🐸",
-  "🦉",
-  "🐙",
-  "🦄",
-  "🐳",
-  "🐝",
-  "🦋",
-];
-
 export const shadow = {
   card: {
     shadowColor: "#111C44",
@@ -89,39 +77,8 @@ export const shadow = {
   },
 };
 
-const AVATAR_GRADIENTS = [
-  ["#6366F1", "#8B5CF6"],
-  ["#0EA5E9", "#6366F1"],
-  ["#F59E0B", "#EF4444"],
-  ["#10B981", "#0EA5E9"],
-  ["#EC4899", "#8B5CF6"],
-  ["#F97316", "#F43F5E"],
-];
-
-export function avatarGradient(name = "") {
-  let hash = 0;
-  for (let i = 0; i < name.length; i += 1) {
-    hash = (hash * 31 + name.charCodeAt(i)) % 100000;
-  }
-  return AVATAR_GRADIENTS[hash % AVATAR_GRADIENTS.length];
-}
-
-export function initials(name = "") {
-  return (
-    name
-      .trim()
-      .split(/\s+/)
-      .slice(0, 2)
-      .map((part) => part.charAt(0).toUpperCase())
-      .join("") || "?"
-  );
-}
-
-export function formatDate(value) {
-  if (!value) return "—";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return "—";
-  const day = String(date.getDate()).padStart(2, "0");
-  const month = String(date.getMonth() + 1).padStart(2, "0");
-  return `${day}/${month}/${date.getFullYear()}`;
-}
+// Compatibility exports (prefer importing from utils/constants directly in new code)
+export { AVATARS };
+export const avatarGradient = getAvatarGradient;
+export const initials = getInitials;
+export { formatDate };

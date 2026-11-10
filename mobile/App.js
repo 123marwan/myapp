@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, StyleSheet, Text, View } from "react-native";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { StatusBar } from "expo-status-bar";
@@ -16,21 +15,19 @@ import {
   Cairo_900Black,
 } from "@expo-google-fonts/cairo";
 
-import { AuthContext } from "./AuthContext";
+import { AuthContext } from "./context/AuthContext";
+import { clearSession, getStoredSession, persistSession, persistUser } from "./storage/sessionStorage";
 import LoginScreen from "./screens/LoginScreen";
+import ProfileScreen from "./screens/ProfileScreen";
 import RegisterScreen from "./screens/RegisterScreen";
 import UsersScreen from "./screens/UsersScreen";
-import ProfileScreen from "./screens/ProfileScreen";
 
 const Stack = createNativeStackNavigator();
-
-const TOKEN_KEY = "token";
-const USER_KEY = "user";
 
 export default function App() {
   const [token, setToken] = useState(null);
   const [user, setUser] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [booting, setBooting] = useState(true);
 
   const [fontsLoaded, fontError] = useFonts({
     Cairo_400Regular,
@@ -41,29 +38,19 @@ export default function App() {
     Cairo_900Black,
   });
 
-  // استرجاع الجلسة المحفوظة عند فتح التطبيق
   useEffect(() => {
-    let active = true;
+    let mounted = true;
 
     (async () => {
-      try {
-        const [[, savedToken], [, savedUser]] = await AsyncStorage.multiGet([
-          TOKEN_KEY,
-          USER_KEY,
-        ]);
-        if (active && savedToken) {
-          setToken(savedToken);
-          setUser(savedUser ? JSON.parse(savedUser) : null);
-        }
-      } catch {
-        // لو حصل خطأ في القراءة نكمل كزائر
-      } finally {
-        if (active) setLoading(false);
-      }
+      const session = await getStoredSession();
+      if (!mounted) return;
+      setToken(session.token);
+      setUser(session.user);
+      setBooting(false);
     })();
 
     return () => {
-      active = false;
+      mounted = false;
     };
   }, []);
 
@@ -74,37 +61,22 @@ export default function App() {
       signIn: async (nextToken, nextUser) => {
         setToken(nextToken);
         setUser(nextUser);
-        try {
-          await AsyncStorage.multiSet([
-            [TOKEN_KEY, nextToken],
-            [USER_KEY, JSON.stringify(nextUser)],
-          ]);
-        } catch {
-          // الحفظ للجلسة اختياري، مش لازم يمنع الدخول
-        }
+        await persistSession(nextToken, nextUser);
       },
       signOut: async () => {
         setToken(null);
         setUser(null);
-        try {
-          await AsyncStorage.multiRemove([TOKEN_KEY, USER_KEY]);
-        } catch {
-          // تجاهل أخطاء الحذف
-        }
+        await clearSession();
       },
       updateUser: async (nextUser) => {
         setUser(nextUser);
-        try {
-          await AsyncStorage.setItem(USER_KEY, JSON.stringify(nextUser));
-        } catch {
-          // تجاهل أخطاء الحفظ
-        }
+        await persistUser(nextUser);
       },
     }),
     [token, user]
   );
 
-  if (loading || (!fontsLoaded && !fontError)) {
+  if (booting || (!fontsLoaded && !fontError)) {
     return (
       <LinearGradient
         colors={["#1E1B4B", "#4338CA", "#6D28D9"]}
@@ -121,11 +93,7 @@ export default function App() {
         </View>
         <Text style={styles.splashName}>myapp</Text>
         <Text style={styles.splashTag}>حسابك في مكان واحد</Text>
-        <ActivityIndicator
-          size="small"
-          color="rgba(255,255,255,0.9)"
-          style={styles.splashSpinner}
-        />
+        <ActivityIndicator size="small" color="rgba(255,255,255,0.9)" style={styles.splashSpinner} />
       </LinearGradient>
     );
   }

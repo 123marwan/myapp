@@ -1,10 +1,10 @@
-const { getEnv } = require("./src/config/env");
-const { connectDatabase } = require("./src/config/db");
-const { createApp } = require("./src/app");
+const { loadEnv } = require("./src/infrastructure/config/env");
+const { connectDatabase } = require("./src/infrastructure/database/mongoose");
+const { createApp } = require("./src/main/app");
 
 async function bootstrap() {
   try {
-    const config = getEnv();
+    const config = loadEnv();
     await connectDatabase(config.mongoUri);
 
     const app = createApp(config);
